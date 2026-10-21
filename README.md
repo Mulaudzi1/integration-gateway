@@ -52,10 +52,10 @@ tests/IntegrationGateway.Tests   Unit + end-to-end tests (WebApplicationFactory,
 Requires the [.NET 8 SDK](https://dotnet.microsoft.com/download).
 
 ```bash
-dotnet run --project src/IntegrationGateway
+dotnet run --project src/IntegrationGateway   # http://localhost:8080 (same port as Docker)
 ```
 
-Open the URL shown in the console and click **Send a sample shop order**. With the default config:
+Open http://localhost:8080 and click **Send a sample shop order**. With the default config:
 
 - `crm` receives it straight away
 - `accounting` fails the first attempt (simulated timeout) and succeeds on the retry
@@ -80,6 +80,7 @@ curl -X POST http://localhost:8080/api/inbound/shop \
 
 | Method | Path | Purpose |
 |---|---|---|
+| GET | `/health` | Liveness check |
 | POST | `/api/inbound/{source}` | Receive an event (202 accepted, 200 duplicate, 401 bad signature, 422 no route) |
 | GET | `/api/messages/{id}` | A message and its deliveries |
 | GET | `/api/deliveries?status=DeadLettered` | List deliveries |
