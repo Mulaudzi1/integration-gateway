@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Integration Gateway</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:0;background:#f5f6f8;color:#1d2330}
+header{background:#1d2330;color:#fff;padding:1rem 2rem}h1{margin:0;font-size:1.3rem}
+main{padding:1.5rem 2rem;max-width:1100px}.cards{display:flex;gap:1rem;flex-wrap:wrap}
+.card{background:#fff;border-radius:8px;padding:1rem 1.25rem;min-width:140px;box-shadow:0 1px 2px #0001}
+.card b{display:block;font-size:1.6rem}table{width:100%;border-collapse:collapse;background:#fff;margin-top:1rem}
+td,th{padding:.5rem;border-bottom:1px solid #eee;text-align:left;font-size:.9rem}
+.DeadLettered{color:#b42318}.Delivered{color:#067647}.Retrying{color:#b54708}
+button{cursor:pointer;border:1px solid #ccd;background:#fff;border-radius:6px;padding:.25rem .6rem}
+</style>
+</head>
+<body>
+<header><h1>Integration Gateway</h1></header>
+<main>
+  <div class="cards" id="cards"></div>
+  <p><button id="send">Send a sample shop order</button> <a href="/swagger">API docs</a></p>
+  <table><thead><tr><th>#</th><th>Event</th><th>Route → connector</th><th>Status</th><th>Attempts</th><th>Last error</th><th></th></tr></thead>
+  <tbody id="rows"></tbody></table>
+</main>
+<script>
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+async function refresh() {
+  const stats = await (await fetch('/api/stats')).json();
+  document.getElementById('cards').innerHTML =
+    `<div class="card">Messages<b>${stats.messages}</b></div>` +
+    Object.entries(stats.deliveries).map(([k, v]) => `<div class="card">${k}<b>${v}</b></div>`).join('');
+  const rows = await (await fetch('/api/deliveries?take=50')).json();
+  document.getElementById('rows').innerHTML = rows.map(d => `<tr>
+    <td>${d.id}</td><td>${esc(d.source)}/${esc(d.type)}<br><small>${esc(d.externalId)}</small></td>
+    <td>${esc(d.route)}<br><small>→ ${esc(d.connector)}</small></td>
+    <td class="${d.status}">${d.status}</td><td>${d.attempts}</td><td><small>${esc(d.lastError)}</small></td>
+    <td>${d.status === 'DeadLettered' ? `<button onclick="replay(${d.id})">Replay</button>` : ''}</td></tr>`).join('');
+}
+async function replay(id) { await fetch(`/api/deliveries/${id}/replay`, {method: 'POST'}); refresh(); }
+document.getElementById('send').onclick = async () => {
+  const id = 'ord-' + Date.now();
+  await fetch('/api/inbound/shop', {method: 'POST', headers: {'Content-Type': 'application/json', 'X-Event-Type': 'order.created', 'X-Event-Id': id},
+    body: JSON.stringify({event: 'order.created', orderId: id, total: 1499.00, currency: 'ZAR', customer: {name: 'Thandi Nkosi', email: 'thandi@example.co.za'}})});
+  refresh();
+};
+refresh(); setInterval(refresh, 2000);
+</script>
+</body>
+</html>
